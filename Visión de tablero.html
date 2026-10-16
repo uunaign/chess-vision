@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Visión de tablero</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap">
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+--bg:#eef1f4;--card:#fff;--fg:#1b2633;--mut:#5f6c7b;--line:#d3dbe4;--acc:#0f766e;--accfg:#fff;
+--lt:#e3e9ef;--dk:#6c88a6;--pc:#111a24;--ok:#58b36b;--bad:#e2685a;--ring:#d99a00;--sel:#2f6fdb}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0e151d;--card:#17212d;--fg:#e8edf3;--mut:#93a1b2;--line:#2a3846;--acc:#2dd4bf;--accfg:#06201d;--lt:#c9d3de;--dk:#51708f}}
+:root[data-theme="dark"]{--bg:#0e151d;--card:#17212d;--fg:#e8edf3;--mut:#93a1b2;--line:#2a3846;--acc:#2dd4bf;--accfg:#06201d;--lt:#c9d3de;--dk:#51708f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100dvh;display:flex;background:var(--bg);color:var(--fg);font:16px/24px "Space Grotesk",system-ui,sans-serif}
+.app{width:100%;max-width:1096px;margin:auto;padding:16px;display:grid;grid-template-columns:minmax(0,1fr);gap:16px;
+grid-template-areas:"head" "modes" "desc" "stats" "q" "board" "ans" "fb" "next" "opts"}
+.head{grid-area:head;margin:0;font-size:24px;line-height:32px;font-weight:700}
+.modes{grid-area:modes;display:flex;gap:8px;overflow-x:auto;margin:0 -16px;padding:0 16px 4px;scrollbar-width:none}
+.modes button{flex:none;height:40px;padding:0 16px;border:1px solid var(--line);border-radius:20px;background:var(--card);color:var(--fg);font:inherit;font-size:14px;line-height:1;cursor:pointer}
+.modes button[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:var(--accfg);font-weight:500}
+.desc{grid-area:desc;margin:0;color:var(--mut);font-size:14px;line-height:20px;min-height:40px}
+.stats{grid-area:stats;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.stats div{height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--card);border:1px solid var(--line);border-radius:8px}
+.stats b{font-size:20px;line-height:24px}.stats span{font-size:12px;line-height:16px;color:var(--mut)}
+#q{grid-area:q;font-size:22px;line-height:32px;font-weight:500;min-height:64px}
+#q b{color:var(--acc)}
+.stage{grid-area:board;position:relative;justify-self:center;width:fit-content;height:fit-content}
+#big{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+#big:empty{display:none}
+#big span{padding:0 .22em;border-radius:calc(var(--c,44px)*.5);background:color-mix(in srgb,var(--card) 78%,transparent);color:var(--fg);font-weight:700;font-size:calc(var(--c,44px)*2.8);line-height:1.15;box-shadow:0 0 0 1px var(--line)}
+#board{width:352px;height:352px;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-template-rows:repeat(8,minmax(0,1fr));border-radius:8px;overflow:hidden;box-shadow:0 0 0 1px var(--line);transition:opacity .2s}
+#board.veil{visibility:hidden}
+.stage:has(.veil){background:var(--card);border-radius:8px;box-shadow:0 0 0 1px var(--line)}
+.sq{position:relative;min-width:0;min-height:0;overflow:hidden;border:0;padding:0;margin:0;line-height:1;font:inherit;font-size:calc(var(--c,44px)*.72);color:var(--pc);display:flex;align-items:center;justify-content:center;cursor:pointer}
+.lt{background:var(--lt)}.dk{background:var(--dk)}
+.sq i{position:absolute;font-style:normal;font-size:calc(var(--c,44px)*.22);line-height:1;opacity:.75;color:var(--pc)}
+.sq i.f{right:4px;bottom:4px}.sq i.r{left:4px;top:4px}
+.hl{box-shadow:inset 0 0 0 4px var(--ring)}.target{box-shadow:inset 0 0 0 4px var(--sel)}.sel{box-shadow:inset 0 0 0 4px var(--sel)}
+.sq.ok{background:var(--ok)}.sq.bad{background:var(--bad)}
+#ans{grid-area:ans;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-rows:48px;gap:8px;align-content:start;min-height:104px}
+#ans button,#next{height:48px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:8px;padding:0 16px;font:inherit;font-size:18px;font-weight:500;line-height:1;cursor:pointer}
+#ans button:last-child:nth-child(odd){grid-column:1/-1}
+#ans button.ok{background:var(--ok);color:#06210d;border-color:var(--ok)}#ans button.bad{background:var(--bad);color:#2a0905;border-color:var(--bad)}
+#fb{grid-area:fb;min-height:24px;font-weight:500}
+#next{grid-area:next;visibility:hidden;background:var(--acc);color:var(--accfg);border-color:var(--acc)}
+.opts{grid-area:opts;display:flex;flex-wrap:wrap;gap:8px 24px;color:var(--mut);font-size:14px;line-height:24px}
+.opts label{display:flex;gap:8px;align-items:center;cursor:pointer}
+.opts input{margin:0;width:16px;height:16px;accent-color:var(--acc)}
+.seg{display:flex;width:100%;height:40px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{flex:1;border:0;border-left:1px solid var(--line);background:var(--card);color:var(--fg);font:inherit;font-size:14px;line-height:1;cursor:pointer}
+.seg button:first-child{border-left:0}
+.seg button[aria-pressed=true]{background:var(--acc);color:var(--accfg);font-weight:500}
+.hint{display:none;width:100%;font-size:13px;line-height:20px}
+button:focus-visible{outline:3px solid var(--sel);outline-offset:2px}
+@media (hover:hover){.modes button:hover,#ans button:hover{border-color:var(--acc)}.sq:hover{filter:brightness(1.08)}}
+@media (min-width:900px){
+.app{padding:32px;column-gap:32px;grid-template-columns:minmax(0,1fr) 360px;grid-template-rows:repeat(9,auto) 1fr;
+grid-template-areas:"board head" "board modes" "board desc" "board q" "board ans" "board fb" "board next" "board stats" "board opts" "board ."}
+.stage{justify-self:start;align-self:start}
+.modes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));overflow:visible;margin:0;padding:0}
+.modes button{border-radius:8px;text-align:left;padding:0 12px}
+.hint{display:block}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="app">
+<h1 class="head">Visión de tablero</h1>
+<nav class="modes" id="modes" aria-label="Ejercicios"></nav>
+<p class="desc" id="desc"></p>
+<div class="stats">
+<div><b id="s-ok">0/0</b><span>aciertos</span></div>
+<div><b id="s-st">0</b><span>racha</span></div>
+<div><b id="s-bt">0</b><span>mejor racha</span></div>
+<div><b id="s-tm">–</b><span>tiempo medio</span></div>
+</div>
+<div id="q"></div>
+<div class="stage"><div id="board" aria-label="Tablero"></div><div id="big" aria-hidden="true"></div></div>
+<div id="ans"></div>
+<div id="fb" aria-live="polite"></div>
+<button id="next">Siguiente</button>
+<div class="opts">
+<label><input type="checkbox" id="o-flip"> Negras abajo</label>
+<label><input type="checkbox" id="o-coords" checked> Coordenadas</label>
+<label id="l-hl" style="display:none"><input type="checkbox" id="o-hl"> Resaltar destino</label>
+<div class="seg" id="l-blind" role="group" aria-label="Vista"><button data-v="full" aria-pressed="true">Con piezas</button><button data-v="notes" aria-pressed="false">Solo notación</button><button data-v="blind" aria-pressed="false">Ciego</button></div>
+<span class="hint">Teclado: letras a–h, números 1–8 o 1–4 para responder, Intro para continuar.</span>
+</div>
+</main>
+<script>
+const F='abcdefgh',$=s=>document.querySelector(s),rnd=n=>Math.floor(Math.random()*n),pick=a=>a[rnd(a.length)];
+const nm=(f,r)=>F[f]+(r+1),parse=s=>[F.indexOf(s[0]),+s[1]-1],isDark=s=>{const[f,r]=parse(s);return (f+r)%2===0};
+const shuf=a=>a.map(x=>[Math.random(),x]).sort((p,q)=>p[0]-q[0]).map(x=>x[1]);
+const MODES={
+file:{t:'Columnas',d:'Te dicen una letra: toca cualquier casilla de esa columna. Las coordenadas se ocultan solas.'},
+rank:{t:'Filas',d:'Te dicen un número: toca cualquier casilla de esa fila. Las coordenadas se ocultan solas.'},
+color:{t:'Color de casilla',d:'Sin tablero a la vista: di si la casilla es clara u oscura.'},
+find:{t:'Encuentra la casilla',d:'Toca en el tablero la casilla que te piden. Apaga las coordenadas para subir la dificultad.'},
+name:{t:'Nombra la casilla',d:'Una casilla aparece marcada: elige su nombre. Las coordenadas se ocultan solas.'},
+knight:{t:'Caballo',d:'Saltos mínimos de caballo entre dos casillas. Elige la vista abajo.'},
+attack:{t:'Ataque',d:'Tablero vacío: ¿ataca la pieza a la casilla? Elige la vista abajo.'},
+memory:{t:'Memoria',d:'Memoriza las piezas, desaparecen, toca las casillas donde estaban. El nivel sube al acertar.'}
+};
+let S={mode:'color',ok:0,n:0,st:0,bt:0,tms:0,q:null,t0:0,locked:false,lvl:3,tok:0,phase:'',picked:new Set(),flip:false,coords:true,blind:false};
+let V={pieces:{},marks:{},hide:null};S.view='full';S.rv=null;
+const GL={N:'♞',B:'♝',R:'♜',Q:'♛',K:'♚'},PN={N:'caballo',B:'alfil',R:'torre',Q:'dama'};
+
+function render(){
+ const b=$('#board');b.innerHTML='';
+ b.className=V.hide==='gone'?'gone':V.hide?'veil':'';
+ const o=[0,1,2,3,4,5,6,7],rs=S.flip?o:o.slice().reverse(),fs=S.flip?o.slice().reverse():o;
+ const showC=S.coords&&!['name','file','rank'].includes(S.mode);
+ rs.forEach((r,ri)=>fs.forEach((f,fi)=>{
+  const s=nm(f,r),d=document.createElement('button');
+  d.className='sq '+(isDark(s)?'dk':'lt')+' '+(V.marks[s]||'');
+  d.dataset.sq=s;d.setAttribute('aria-label',s);
+  d.textContent=V.pieces[s]||'';
+  if(showC){
+   if(ri===7){const i=document.createElement('i');i.className='f';i.textContent=F[f];d.append(i)}
+   if(fi===0){const i=document.createElement('i');i.className='r';i.textContent=r+1;d.append(i)}
+  }
+  b.append(d);
+ }));
+}
+function setAns(opts,correct){
+ const a=$('#ans');a.innerHTML='';
+ opts.forEach(o=>{const x=document.createElement('button');x.textContent=o;x.onclick=()=>{
+  if(S.locked)return;const ok=o===correct;x.classList.add(ok?'ok':'bad');
+  [...a.children].forEach(c=>{if(c.textContent===correct)c.classList.add('ok')});
+  reveal();finish(ok,correct);};a.append(x)});
+}
+const setBig=t=>{const e=$('#big');e.innerHTML=t?'<span>'+t+'</span>':'';if(t){const l=t.length;e.firstChild.style.fontSize='calc(var(--c,44px)*'+(l<=3?2.8:l<=7?1.6:1.25)+')'}};
+function reveal(){V.hide=null;if(S.rv){Object.assign(V.pieces,S.rv.p);Object.assign(V.marks,S.rv.m)}render()}
+function stats(){
+ $('#s-ok').textContent=S.ok+'/'+S.n;$('#s-st').textContent=S.st;$('#s-bt').textContent=S.bt;
+ $('#s-tm').textContent=S.n?(S.tms/S.n/1000).toFixed(1)+' s':'–';
+}
+function finish(ok,right,msg){
+ if(S.locked)return;S.locked=true;setBig('');S.n++;S.tms+=Date.now()-S.t0;
+ if(ok){S.ok++;S.st++;S.bt=Math.max(S.bt,S.st)}else S.st=0;
+ stats();
+ $('#fb').textContent=msg||(ok?'Correcto':'Era '+right);
+ if(ok&&!msg)setTimeout(()=>{if(S.locked)next()},850);
+ else $('#next').style.visibility='visible';
+}
+function newQ(){S.t0=Date.now()}
+
+const G={
+file(){S.q=F[rnd(8)];render();$('#ans').innerHTML='';$('#q').innerHTML='Toca la columna <b>'+S.q.toUpperCase()+'</b>';setBig(S.q.toUpperCase())},
+rank(){S.q=String(1+rnd(8));render();$('#ans').innerHTML='';$('#q').innerHTML='Toca la fila <b>'+S.q+'</b>';setBig(S.q)},
+color(){
+ const s=S.q=nm(rnd(8),rnd(8));V.hide=true;render();
+ $('#q').innerHTML='¿De qué color es la casilla <b>'+s+'</b>?';setBig(s);
+ setAns(['Clara','Oscura'],isDark(s)?'Oscura':'Clara');
+ V.marks[s]='hl';
+},
+find(){
+ const s=S.q=nm(rnd(8),rnd(8));render();$('#ans').innerHTML='';
+ $('#q').innerHTML='Toca la casilla <b>'+s+'</b>';setBig(s);
+},
+name(){
+ const s=S.q=nm(rnd(8),rnd(8)),[f,r]=parse(s);V.marks[s]='hl';render();
+ const set=new Set([s]);
+ const cand=[nm(f,(r+1+rnd(7))%8),nm((f+1+rnd(7))%8,r),nm(rnd(8),rnd(8))];
+ cand.forEach(c=>set.add(c));
+ while(set.size<4)set.add(nm(rnd(8),rnd(8)));
+ $('#q').textContent='¿Cómo se llama la casilla marcada?';
+ setAns(shuf([...set]),s);
+},
+knight(){
+ let a,b,d;
+ do{a=nm(rnd(8),rnd(8));b=nm(rnd(8),rnd(8));d=a===b?0:kd(a,b)}while(d<1||(d>4&&Math.random()<.6));
+ 
+ $('#q').innerHTML='Caballo en <b>'+a+'</b>, destino <b>'+b+'</b>. ¿Cuántos saltos mínimos?';
+ S.rv={p:{[a]:GL.N},m:{[b]:'target'}};if(S.view==='full'){V.pieces[a]=GL.N;V.marks[b]='target'}V.hide=S.view==='blind'?true:null;render();setBig(S.view==='full'?'':a+' → '+b);
+ setAns(['1','2','3','4','5 o más'],d>=5?'5 o más':String(d));
+},
+attack(){
+ const p=pick(Object.keys(PN)),want=Math.random()<.5;let s,t;
+ do{s=nm(rnd(8),rnd(8));t=nm(rnd(8),rnd(8))}while(s===t||att(p,s,t)!==want);
+ $('#q').innerHTML='¿Ataca la '+(p==='N'?'':'')+PN[p]+' de <b>'+s+'</b> a <b>'+t+'</b>?';
+ S.rv={p:{[s]:GL[p]},m:{[t]:'target'}};if(S.view==='full'){V.pieces[s]=GL[p];if($('#o-hl').checked)V.marks[t]='target'}V.hide=S.view==='blind'?true:null;render();setBig(S.view==='full'?'':GL[p]+' '+s+' → '+t);
+ setAns(['Sí','No'],want?'Sí':'No');
+},
+memory(){
+ const n=S.lvl,tok=S.tok,sq=new Set();
+ while(sq.size<n)sq.add(nm(rnd(8),rnd(8)));
+ S.q=[...sq];S.picked=new Set();S.phase='show';
+ S.q.forEach(s=>V.pieces[s]=pick(['♞','♝','♜','♛','♚']));
+ render();$('#ans').innerHTML='';
+ const secs=Math.round(n*1.3);let left=secs;
+ const tick=()=>{if(tok!==S.tok)return;
+  if(left>0){$('#q').innerHTML='Memoriza <b>'+n+'</b> piezas… '+left+' s';left--;setTimeout(tick,1000)}
+  else{V.pieces={};S.phase='pick';S.t0=Date.now();render();$('#q').innerHTML='Toca las <b>'+n+'</b> casillas donde había piezas';}};
+ tick();
+}
+};
+function kd(a,b){const d={[a]:0},q=[a];while(q.length){const c=q.shift();if(c===b)return d[c];const[f,r]=parse(c);
+ [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]].forEach(([x,y])=>{const nf=f+x,nr=r+y;if(nf<0||nf>7||nr<0||nr>7)return;
+ const n=nm(nf,nr);if(!(n in d)){d[n]=d[c]+1;q.push(n)}})}}
+function att(p,s,t){const[a,b]=parse(s),[c,d]=parse(t),x=Math.abs(a-c),y=Math.abs(b-d);
+ const B=x===y,R=x===0||y===0;
+ return p==='N'?(x*y===2):p==='B'?B:p==='R'?R:(B||R)}
+
+function onSq(s){
+ if(S.locked)return;
+ if(S.mode==='file'||S.mode==='rank'){const fl=S.mode==='file',ok=s[fl?0:1]===S.q;for(let k=0;k<8;k++)V.marks[fl?S.q+(k+1):F[k]+S.q]='ok';if(!ok)V.marks[s]='bad';render();finish(ok,S.q,ok?'':(fl?'Era la columna ':'Era la fila ')+S.q.toUpperCase()+'. Tocaste '+(fl?s[0].toUpperCase():s[1]))}else if(S.mode==='find'){
+  const ok=s===S.q;V.marks[s]=ok?'ok':'bad';if(!ok)V.marks[S.q]='ok';render();finish(ok,S.q,ok?'':'Era '+S.q+' (tocaste '+s+')');
+ }else if(S.mode==='memory'&&S.phase==='pick'){
+  if(S.picked.has(s)){S.picked.delete(s);delete V.marks[s]}else{S.picked.add(s);V.marks[s]='sel'}
+  render();
+  if(S.picked.size===S.q.length){
+   let hit=0;V.marks={};
+   S.picked.forEach(p=>{if(S.q.includes(p)){hit++;V.marks[p]='ok'}else V.marks[p]='bad'});
+   S.q.forEach(p=>{if(!S.picked.has(p))V.marks[p]='hl'});
+   render();S.phase='done';const ok=hit===S.q.length;
+   S.lvl=ok?Math.min(S.lvl+1,12):Math.max(2,S.lvl-1);
+   finish(ok,'',ok?'Perfecto. Nivel '+S.lvl+' ('+S.lvl+' piezas)':hit+' de '+S.q.length+'. Las que faltaron están marcadas en amarillo.');
+   if(ok){$('#next').style.visibility='visible'}
+  }
+ }
+}
+function next(){
+ S.tok++;S.locked=false;S.phase='';V={pieces:{},marks:{},hide:null};S.rv=null;setBig('');
+ $('#fb').textContent='';$('#next').style.visibility='hidden';$('#ans').innerHTML='';
+ S.flip=$('#o-flip').checked;S.coords=$('#o-coords').checked;
+ $('#l-blind').style.display=(S.mode==='knight'||S.mode==='attack')?'flex':'none';$('#l-hl').style.display=S.mode==='attack'?'flex':'none';
+ newQ();G[S.mode]();
+ if(S.mode!=='memory')S.t0=Date.now();
+}
+function setMode(m){
+ S.mode=m;S.ok=S.n=S.st=S.tms=0;stats();
+ $('#desc').textContent=MODES[m].d;
+ [...$('#modes').children].forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===m));
+ next();
+}
+const md=$('#modes');
+Object.entries(MODES).forEach(([k,v])=>{const b=document.createElement('button');b.textContent=v.t;b.dataset.m=k;b.onclick=()=>setMode(k);md.append(b)});
+$('#board').onclick=e=>{const q=e.target.closest('.sq');if(q)onSq(q.dataset.sq)};
+$('#next').onclick=next;
+['o-flip','o-coords'].forEach(id=>$('#'+id).onchange=()=>{S.flip=$('#o-flip').checked;S.coords=$('#o-coords').checked;render()});
+$('#l-blind').onclick=e=>{const b=e.target.closest('button');if(!b)return;S.view=b.dataset.v;[...$('#l-blind').children].forEach(x=>x.setAttribute('aria-pressed',x===b));next()};
+$('#o-hl').onchange=()=>next();
+const board=$('#board'),mq=matchMedia('(min-width:900px)');
+function fit(){const a=$('.app'),cs=getComputedStyle(a),d=mq.matches;
+ const avail=a.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight)-(d?392:0);
+ const max=d?Math.min(640,innerHeight-64):420;
+ const sz=Math.max(240,Math.floor(Math.min(avail,max)/8)*8);
+ board.style.width=board.style.height=sz+'px';board.style.setProperty('--c',sz/8+'px');board.parentElement.style.setProperty('--c',sz/8+'px');}
+addEventListener('resize',fit);fit();
+addEventListener('keydown',e=>{
+ if(e.ctrlKey||e.metaKey||e.altKey)return;const k=e.key.toLowerCase();
+ if((k==='enter'||k===' ')&&$('#next').style.visibility==='visible'){e.preventDefault();next();return}
+ if(S.locked)return;
+ if(S.mode==='file'&&/^[a-h]$/.test(k))onSq(k+'1');
+ else if(S.mode==='rank'&&/^[1-8]$/.test(k))onSq('a'+k);
+ else if(/^[1-9]$/.test(k)){const b=$('#ans').children[+k-1];if(b)b.click()}
+});
+setMode('file');
+</script>
+</body>
+</html>
